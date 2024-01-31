@@ -44,10 +44,10 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 
+	ovnv1 "github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
+	"github.com/fernandoroyosanchez/ovn-operator/controllers"
 	test "github.com/openstack-k8s-operators/lib-common/modules/test"
 	ovn_test "github.com/openstack-k8s-operators/ovn-operator/api/test/helpers"
-	ovnv1 "github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
-	"github.com/openstack-k8s-operators/ovn-operator/controllers"
 
 	common_test "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 	//+kubebuilder:scaffold:imports

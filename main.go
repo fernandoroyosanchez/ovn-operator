@@ -40,8 +40,8 @@ import (
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	infranetworkv1 "github.com/openstack-k8s-operators/infra-operator/apis/network/v1beta1"
 
-	ovnv1 "github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
-	"github.com/openstack-k8s-operators/ovn-operator/controllers"
+	ovnv1 "github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
+	"github.com/fernandoroyosanchez/ovn-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -131,6 +131,22 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "OVNController")
 		os.Exit(1)
 	}
+	if err = (&controllers.OVSDBServerReconciler{
+		Client:  mgr.GetClient(),
+		Kclient: kclient,
+		Scheme:  mgr.GetScheme(),
+	}).SetupWithManager(mgr, context.Background()); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "OVSDBServer")
+		os.Exit(1)
+	}
+	if err = (&controllers.OVSvswitchdReconciler{
+		Client:  mgr.GetClient(),
+		Kclient: kclient,
+		Scheme:  mgr.GetScheme(),
+	}).SetupWithManager(mgr, context.Background()); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "OVSvswitchd")
+		os.Exit(1)
+	}
 
 	// Acquire environmental defaults and initialize operator defaults with them
 	ovnv1.SetupDefaults()
@@ -154,8 +170,17 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "OVNController")
 			os.Exit(1)
 		}
+		if err = (&ovnv1.OVSDBServer{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "OVSDBServer")
+			os.Exit(1)
+		}
+		if err = (&ovnv1.OVSvswitchd{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "OVSvswitchd")
+			os.Exit(1)
+		}
 		checker = mgr.GetWebhookServer().StartedChecker()
 	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", checker); err != nil {

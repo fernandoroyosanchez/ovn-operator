@@ -22,8 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
+	ovnv1 "github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
-	ovnv1 "github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
 )
 
 // OVNDBPods - Query current running ovn db pods managed by the statefulset

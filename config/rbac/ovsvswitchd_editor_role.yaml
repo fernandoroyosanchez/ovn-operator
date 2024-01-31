@@ -1,0 +1,24 @@
+# permissions for end users to edit ovsvswitchds.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ovsvswitchd-editor-role
+rules:
+- apiGroups:
+  - ovn.openstack.org
+  resources:
+  - ovsvswitchds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ovn.openstack.org
+  resources:
+  - ovsvswitchds/status
+  verbs:
+  - get

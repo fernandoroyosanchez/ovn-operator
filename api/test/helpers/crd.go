@@ -17,11 +17,11 @@ import (
 	"context"
 	"time"
 
+	ovnv1 "github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	ovnv1 "github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -293,4 +293,168 @@ func (th *TestHelper) SimulateOVNControllerReady(name types.NamespacedName) {
 		g.Expect(th.K8sClient.Status().Update(th.Ctx, service)).To(gomega.Succeed())
 	}, th.Timeout, th.Interval).Should(gomega.Succeed())
 	th.Logger.Info("Simulated GetOVNController ready", "on", name)
+}
+
+// CreateOVSDBServer creates a new OVSDBServer instance with the specified
+// namespace in the Kubernetes cluster.
+//
+// Example usage:
+//
+//	ovsdbserver := th.CreateOVSDBServer (namespace, spec)
+//	DeferCleanup(th.DeleteOVSDBServer, ovsdbserver)
+func (th *TestHelper) CreateOVSDBServer(namespace string, spec ovnv1.OVSDBServerSpec) types.NamespacedName {
+	name := "ovsdbserver-" + uuid.New().String()
+	ovsdbserver := &ovnv1.OVSDBServer{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "ovn.openstack.org/v1beta1",
+			Kind:       "OVSDBServer",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: spec,
+	}
+
+	gomega.Expect(th.K8sClient.Create(th.Ctx, ovsdbserver)).Should(gomega.Succeed())
+	th.Logger.Info("OVSDBServer created", "OVSDBServer", name)
+	return types.NamespacedName{Namespace: namespace, Name: name}
+}
+
+// DeleteOVSDBServer deletes a OVSDBServer resource from the Kubernetes cluster.
+//
+// After the deletion, the function checks again if the OVSDBServer is
+// successfully deleted.
+//
+// Example usage:
+//
+//	ovsdbserver := th.CreateOVSDBServer(namespace, spec)
+//	DeferCleanup(th.DeleteOVSDBServer, ovsdbserver)
+func (th *TestHelper) DeleteOVSDBServer(name types.NamespacedName) {
+	gomega.Eventually(func(g gomega.Gomega) {
+		ovsdbserver := &ovnv1.OVSDBServer{}
+		err := th.K8sClient.Get(th.Ctx, name, ovsdbserver)
+		// if it is already gone that is OK
+		if k8s_errors.IsNotFound(err) {
+			return
+		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		g.Expect(th.K8sClient.Delete(th.Ctx, ovsdbserver)).Should(gomega.Succeed())
+
+		err = th.K8sClient.Get(th.Ctx, name, ovsdbserver)
+		g.Expect(k8s_errors.IsNotFound(err)).To(gomega.BeTrue())
+	}, th.Timeout, th.Interval).Should(gomega.Succeed())
+}
+
+// GetOVSDBServer retrieves a OVSDBServer resource.
+//
+// The function returns a pointer to the retrieved OVSDBServer resource.
+//
+// Example usage:
+//
+//	ovsdbserverName := th.CreateOVSDBServer(namespace, spec)
+//	ovsdbserver := th.GetOVSDBServer(ovsdbserverName)
+func (th *TestHelper) GetOVSDBServer(name types.NamespacedName) *ovnv1.OVSDBServer {
+	instance := &ovnv1.OVSDBServer{}
+	gomega.Eventually(func(g gomega.Gomega) {
+		g.Expect(th.K8sClient.Get(th.Ctx, name, instance)).Should(gomega.Succeed())
+	}, th.Timeout, th.Interval).Should(gomega.Succeed())
+	return instance
+}
+
+// SimulateOVSDBServerReady simulates the readiness of a OVSDBServer resource by
+// setting the Ready condition of the OVSDBServer to true.
+//
+// Example usage:
+// th.SimulateOVSDBServerReady(ovsdbserverName)
+func (th *TestHelper) SimulateOVSDBServerReady(name types.NamespacedName) {
+	gomega.Eventually(func(g gomega.Gomega) {
+		service := th.GetOVSDBServer(name)
+		service.Status.Conditions.MarkTrue(condition.ReadyCondition, "Ready")
+		g.Expect(th.K8sClient.Status().Update(th.Ctx, service)).To(gomega.Succeed())
+	}, th.Timeout, th.Interval).Should(gomega.Succeed())
+	th.Logger.Info("Simulated GetOVSDBServer ready", "on", name)
+}
+
+// CreateOVSvswitchd creates a new OVSvswitchd instance with the specified
+// namespace in the Kubernetes cluster.
+//
+// Example usage:
+//
+//	ovsvswitchd := th.CreateOVSvswitchd (namespace, spec)
+//	DeferCleanup(th.DeleteOVSvswitchd, ovsvswitchd)
+func (th *TestHelper) CreateOVSvswitchd(namespace string, spec ovnv1.OVSvswitchdSpec) types.NamespacedName {
+	name := "ovsvswitchd-" + uuid.New().String()
+	ovsvswitchd := &ovnv1.OVSvswitchd{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "ovn.openstack.org/v1beta1",
+			Kind:       "OVSvswitchd",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: spec,
+	}
+
+	gomega.Expect(th.K8sClient.Create(th.Ctx, ovsvswitchd)).Should(gomega.Succeed())
+	th.Logger.Info("OVSvswitchd created", "OVSvswitchd", name)
+	return types.NamespacedName{Namespace: namespace, Name: name}
+}
+
+// DeleteOVSvswitchd deletes a OVSvswitchd resource from the Kubernetes cluster.
+//
+// After the deletion, the function checks again if the OVSvswitchd is
+// successfully deleted.
+//
+// Example usage:
+//
+//	ovsvswitchd := th.CreateOVSvswitchd(namespace, spec)
+//	DeferCleanup(th.DeleteOVSvswitchd, ovsvswitchd)
+func (th *TestHelper) DeleteOVSvswitchd(name types.NamespacedName) {
+	gomega.Eventually(func(g gomega.Gomega) {
+		ovsvswitchd := &ovnv1.OVSvswitchd{}
+		err := th.K8sClient.Get(th.Ctx, name, ovsvswitchd)
+		// if it is already gone that is OK
+		if k8s_errors.IsNotFound(err) {
+			return
+		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+
+		g.Expect(th.K8sClient.Delete(th.Ctx, ovsvswitchd)).Should(gomega.Succeed())
+
+		err = th.K8sClient.Get(th.Ctx, name, ovsvswitchd)
+		g.Expect(k8s_errors.IsNotFound(err)).To(gomega.BeTrue())
+	}, th.Timeout, th.Interval).Should(gomega.Succeed())
+}
+
+// GetOVSvswitchd retrieves a OVSvswitchd resource.
+//
+// The function returns a pointer to the retrieved OVSvswitchd resource.
+//
+// Example usage:
+//
+//	ovsvswitchdName := th.CreateOVSvswitchd(namespace, spec)
+//	ovsvswitchd := th.GetOVSvswitchd(ovsvswitchdName)
+func (th *TestHelper) GetOVSvswitchd(name types.NamespacedName) *ovnv1.OVSvswitchd {
+	instance := &ovnv1.OVSvswitchd{}
+	gomega.Eventually(func(g gomega.Gomega) {
+		g.Expect(th.K8sClient.Get(th.Ctx, name, instance)).Should(gomega.Succeed())
+	}, th.Timeout, th.Interval).Should(gomega.Succeed())
+	return instance
+}
+
+// SimulateOVSvswitchdReady simulates the readiness of a OVSvswitchd resource by
+// setting the Ready condition of the OVSvswitchd to true.
+//
+// Example usage:
+// th.SimulateOVSvswitchdReady(ovsvswitchdName)
+func (th *TestHelper) SimulateOVSvswitchdReady(name types.NamespacedName) {
+	gomega.Eventually(func(g gomega.Gomega) {
+		service := th.GetOVSvswitchd(name)
+		service.Status.Conditions.MarkTrue(condition.ReadyCondition, "Ready")
+		g.Expect(th.K8sClient.Status().Update(th.Ctx, service)).To(gomega.Succeed())
+	}, th.Timeout, th.Interval).Should(gomega.Succeed())
+	th.Logger.Info("Simulated GetOVSvswitchd ready", "on", name)
 }

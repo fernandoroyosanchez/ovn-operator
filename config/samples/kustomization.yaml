@@ -3,4 +3,6 @@ resources:
 - ovn_v1beta1_ovnnorthd.yaml
 - ovn_v1beta1_ovndbcluster.yaml
 - ovn_v1beta1_ovncontroller.yaml
+- ovn_v1beta1_ovsdbserver.yaml
+- ovn_v1beta1_ovsvswitchd.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

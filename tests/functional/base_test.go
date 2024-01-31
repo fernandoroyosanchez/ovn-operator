@@ -27,11 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
+	ovnv1 "github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	infranetworkv1 "github.com/openstack-k8s-operators/infra-operator/apis/network/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	"github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
-	ovnv1 "github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
 )
 
 const (
@@ -211,6 +211,44 @@ func GetOVNController(name types.NamespacedName) *ovnv1.OVNController {
 
 func OVNControllerConditionGetter(name types.NamespacedName) condition.Conditions {
 	instance := ovn.GetOVNController(name)
+	return instance.Status.Conditions
+}
+
+func GetDefaultOVSDBServerSpec() v1beta1.OVSDBServerSpec {
+	return v1beta1.OVSDBServerSpec{}
+}
+
+func CreateOVSDBServerSpec(namespace string, spec v1beta1.OVSDBServerSpec) client.Object {
+
+	name := ovn.CreateOVSDBServer(namespace, spec)
+	return ovn.GetOVSDBServer(name)
+}
+
+func GetOVSDBServer(name types.NamespacedName) *ovnv1.OVSDBServer {
+	return ovn.GetOVSDBServer(name)
+}
+
+func OVSDBServerConditionGetter(name types.NamespacedName) condition.Conditions {
+	instance := ovn.GetOVSDBServer(name)
+	return instance.Status.Conditions
+}
+
+func GetDefaultOVSvswitchdSpec() v1beta1.OVSvswitchdSpec {
+	return v1beta1.OVSvswitchdSpec{}
+}
+
+func CreateOVSvswitchd(namespace string, spec v1beta1.OVSvswitchdSpec) client.Object {
+
+	name := ovn.CreateOVSvswitchd(namespace, spec)
+	return ovn.GetOVSvswitchd(name)
+}
+
+func GetOVSvswitchd(name types.NamespacedName) *ovnv1.OVSvswitchd {
+	return ovn.GetOVSvswitchd(name)
+}
+
+func OVSvswitchdConditionGetter(name types.NamespacedName) condition.Conditions {
+	instance := ovn.GetOVSvswitchd(name)
 	return instance.Status.Conditions
 }
 

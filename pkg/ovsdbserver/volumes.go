@@ -1,4 +1,4 @@
-package ovncontroller
+package ovsdbserver
 
 import (
 	"fmt"
@@ -99,8 +99,8 @@ func GetVolumes(name string, namespace string) []corev1.Volume {
 
 }
 
-// GetOvnControllerVolumeMounts - ovn-controller VolumeMounts
-func GetOvnControllerVolumeMounts() []corev1.VolumeMount {
+// GetOvsDbVolumeMounts - ovsdb-server VolumeMounts
+func GetOvsDbVolumeMounts() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{
 			Name:      "etc-machine-id",
@@ -113,18 +113,23 @@ func GetOvnControllerVolumeMounts() []corev1.VolumeMount {
 			ReadOnly:  true,
 		},
 		{
+			Name:      "etc-ovs",
+			MountPath: "/etc/openvswitch",
+			ReadOnly:  false,
+		},
+		{
 			Name:      "var-run",
 			MountPath: "/var/run/openvswitch",
 			ReadOnly:  false,
 		},
 		{
-			Name:      "var-run-ovn",
-			MountPath: "/var/run/ovn",
+			Name:      "var-log",
+			MountPath: "/var/log/openvswitch",
 			ReadOnly:  false,
 		},
 		{
-			Name:      "var-log-ovn",
-			MountPath: "/var/log/ovn",
+			Name:      "var-lib",
+			MountPath: "/var/lib/openvswitch",
 			ReadOnly:  false,
 		},
 		{

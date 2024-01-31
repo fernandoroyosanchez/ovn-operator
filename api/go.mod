@@ -1,4 +1,4 @@
-module github.com/openstack-k8s-operators/ovn-operator/api
+module github.com/fernandoroyosanchez/ovn-operator/api
 
 go 1.19
 

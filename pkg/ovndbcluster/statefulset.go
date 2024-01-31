@@ -13,11 +13,11 @@ limitations under the License.
 package ovndbcluster
 
 import (
+	"github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
+	ovnv1 "github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/affinity"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
-	"github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
-	ovnv1 "github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

@@ -1,0 +1,5 @@
+apiVersion: ovn.openstack.org/v1beta1
+kind: OVSDBServer
+metadata:
+  name: ovsdbserver-sample
+spec: {}

@@ -37,9 +37,22 @@ func SetupDefaults() {
 
 	// Acquire environmental defaults and initialize OVNController defaults with them
 	ovnControllerDefaults := OvnControllerDefaults{
-		OvsContainerImageURL:           util.GetEnvVar("RELATED_IMAGE_OVN_CONTROLLER_OVS_IMAGE_URL_DEFAULT", OvnControllerOvsContainerImage),
 		OvnControllerContainerImageURL: util.GetEnvVar("RELATED_IMAGE_OVN_CONTROLLER_IMAGE_URL_DEFAULT", OvnControllerContainerImage),
 	}
 
 	SetupOVNControllerDefaults(ovnControllerDefaults)
+
+	// Acquire environmental defaults and initialize OVSDBServer defaults with them
+	ovsDBServerDefaults := OVSDBServerDefaults{
+		OvsContainerImageURL: util.GetEnvVar("RELATED_IMAGE_OVSDB_SERVER_OVS_IMAGE_URL_DEFAULT", OvsdbserverOvsContainerImage),
+	}
+
+	SetupOVSDBServerDefaults(ovsDBServerDefaults)
+
+	// Acquire environmental defaults and initialize OVSvswitchd defaults with them
+	ovsvsswitchdDefaults := OVSvsswitchdDefaults{
+		OvsContainerImageURL: util.GetEnvVar("RELATED_IMAGE_OVS_VSWITCHD_OVS_IMAGE_URL_DEFAULT", OvsvswitchdOvsContainerImage),
+	}
+
+	SetupOVSvsswitchdDefaults(ovsvsswitchdDefaults)
 }

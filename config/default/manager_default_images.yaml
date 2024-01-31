@@ -19,5 +19,7 @@ spec:
           value: quay.io/podified-antelope-centos9/openstack-ovn-northd:current-podified
         - name: RELATED_IMAGE_OVN_CONTROLLER_IMAGE_URL_DEFAULT
           value: quay.io/podified-antelope-centos9/openstack-ovn-controller:current-podified
-        - name: RELATED_IMAGE_OVN_CONTROLLER_OVS_IMAGE_URL_DEFAULT
+        - name: RELATED_IMAGE_OVSDB_SERVER_OVS_IMAGE_URL_DEFAULT
+          value: quay.io/podified-antelope-centos9/openstack-ovn-base:current-podified
+        - name: RELATED_IMAGE_OVS_VSWITCHD_OVS_IMAGE_URL_DEFAULT
           value: quay.io/podified-antelope-centos9/openstack-ovn-base:current-podified

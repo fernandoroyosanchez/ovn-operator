@@ -24,41 +24,33 @@ import (
 )
 
 const (
-	// OvnConfigHash - OvnConfigHash key
-	OvnConfigHash = "OvnConfigHash"
-
-	// Container image fall-back defaults
-	// OvnControllerContainerImage is the fall-back container image for OVNController ovn-controller
-	OvnControllerContainerImage = "quay.io/podified-antelope-centos9/openstack-ovn-controller:current-podified"
+	// OvsvswitchdOvsContainerImage is the fall-back container image for OVNController ovs-*
+	OvsvswitchdOvsContainerImage = "quay.io/podified-antelope-centos9/openstack-ovn-base:current-podified"
 )
 
-// OVNControllerSpec defines the desired state of OVNController
-type OVNControllerSpec struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={}
-	ExternalIDS OVSExternalIDs `json:"external-ids"`
-
+// OVSvswitchdSpec defines the desired state of OVSvswitchd
+type OVSvswitchdSpec struct {
 	// +kubebuilder:validation:Required
-	// Image used for the ovn-controller container (will be set to environmental default if empty)
-	OvnContainerImage string `json:"ovnContainerImage"`
+	// Image used for ovs-vswitchd containers (will be set to environmental default if empty)
+	OvsContainerImage string `json:"ovsContainerImage"`
 
 	// +kubebuilder:validation:Optional
 	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
 	// actual action pod gets started with sleep infinity
-	Debug OVNControllerDebug `json:"debug,omitempty"`
+	Debug OVSvswitchdDebug `json:"debug,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +optional
 	NicMappings map[string]string `json:"nicMappings,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// NodeSelector to target subset of worker nodes running this service
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// Resources - Compute Resources required by this service (Limits/Requests).
 	// https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// NodeSelector to target subset of worker nodes running this service
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// NetworkAttachment is a NetworkAttachment resource name to expose the service to the given network.
@@ -73,16 +65,16 @@ type OVNControllerSpec struct {
 	NetworkAttachments []string `json:"networkAttachments,omitempty"`
 }
 
-// OVNControllerDebug defines the observed state of OVNControllerDebug
-type OVNControllerDebug struct {
+// OVSvswitchdDebug defines the observed state of OVSvswitchdDebug
+type OVSvswitchdDebug struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// Service enable debug
 	Service bool `json:"service"`
 }
 
-// OVNControllerStatus defines the observed state of OVNController
-type OVNControllerStatus struct {
+// OVSvswitchdStatus defines the observed state of OVSvswitchd
+type OVSvswitchdStatus struct {
 	// NumberReady of the OVNController instances
 	NumberReady int32 `json:"numberReady,omitempty"`
 
@@ -105,66 +97,46 @@ type OVNControllerStatus struct {
 //+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[0].status",description="Status"
 //+kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[0].message",description="Message"
 
-// OVNController is the Schema for the ovncontrollers API
-type OVNController struct {
+// OVSvswitchd is the Schema for the ovsvswitchds API
+type OVSvswitchd struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   OVNControllerSpec   `json:"spec,omitempty"`
-	Status OVNControllerStatus `json:"status,omitempty"`
+	Spec   OVSvswitchdSpec   `json:"spec,omitempty"`
+	Status OVSvswitchdStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// OVNControllerList contains a list of OVNController
-type OVNControllerList struct {
+// OVSvswitchdList contains a list of OVSvswitchd
+type OVSvswitchdList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []OVNController `json:"items"`
+	Items           []OVSvswitchd `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&OVNController{}, &OVNControllerList{})
+	SchemeBuilder.Register(&OVSvswitchd{}, &OVSvswitchdList{})
 }
 
 // IsReady - returns true if service is ready to server requests
-func (instance OVNController) IsReady() bool {
+func (instance OVSvswitchd) IsReady() bool {
 	// Ready when:
-	// OVNController is reconciled successfully
+	// OVSvswitchd is reconciled successfully
 	return instance.Status.Conditions.IsTrue(condition.ReadyCondition)
 }
 
-// OVSExternalIDs is a set of configuration options for OVS external-ids table
-type OVSExternalIDs struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="random"
-	SystemID  string `json:"system-id,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="br-int"
-	OvnBridge string `json:"ovn-bridge,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="geneve"
-	// +kubebuilder:validation:Enum={"geneve","vxlan"}
-	OvnEncapType string `json:"ovn-encap-type,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=true
-	EnableChassisAsGateway *bool `json:"enable-chassis-as-gateway"`
-}
-
 // RbacConditionsSet - set the conditions for the rbac object
-func (instance OVNController) RbacConditionsSet(c *condition.Condition) {
+func (instance OVSvswitchd) RbacConditionsSet(c *condition.Condition) {
 	instance.Status.Conditions.Set(c)
 }
 
 // RbacNamespace - return the namespace
-func (instance OVNController) RbacNamespace() string {
+func (instance OVSvswitchd) RbacNamespace() string {
 	return instance.Namespace
 }
 
 // RbacResourceName - return the name to be used for rbac objects (serviceaccount, role, rolebinding)
-func (instance OVNController) RbacResourceName() string {
-	return "ovncontroller-" + instance.Name
+func (instance OVSvswitchd) RbacResourceName() string {
+	return "ovsvswitchd-" + instance.Name
 }

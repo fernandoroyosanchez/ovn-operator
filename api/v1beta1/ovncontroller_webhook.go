@@ -25,7 +25,6 @@ import (
 
 // OvnControllerDefaults -
 type OvnControllerDefaults struct {
-	OvsContainerImageURL string
 	OvnControllerContainerImageURL string
 }
 
@@ -59,9 +58,6 @@ func (r *OVNController) Default() {
 
 // Default - set defaults for this OVNController spec
 func (spec *OVNControllerSpec) Default() {
-	if spec.OvsContainerImage == "" {
-		spec.OvsContainerImage = ovnDefaults.OvsContainerImageURL
-	}
 	if spec.OvnContainerImage == "" {
 		spec.OvnContainerImage = ovnDefaults.OvnControllerContainerImageURL
 	}

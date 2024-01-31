@@ -22,8 +22,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/go-logr/logr"
-	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,27 +33,22 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
-	"github.com/fernandoroyosanchez/ovn-operator/pkg/ovncontroller"
+	"github.com/fernandoroyosanchez/ovn-operator/pkg/ovsdbserver"
+	"github.com/go-logr/logr"
+	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/configmap"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/daemonset"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/job"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
 	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	common_rbac "github.com/openstack-k8s-operators/lib-common/modules/common/rbac"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 )
 
 const (
@@ -59,59 +56,40 @@ const (
 	// that will be used for overlay tenant networking. If present in
 	// the list of attachments, OvnEncapIP is set to this interface's
 	// IP.
-	TunnelNetworkAttachmentName = "tenant"
+	TunnelNetworkAttachmentNameOVSDBServer = "tenant"
 )
 
-func contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-	return false
-}
-
 // getlog returns a logger object with a prefix of "conroller.name" and aditional controller context fields
-func (r *OVNControllerReconciler) GetLogger(ctx context.Context) logr.Logger {
-	return log.FromContext(ctx).WithName("Controllers").WithName("OVNController")
+func (r *OVSDBServerReconciler) GetLogger(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx).WithName("Controllers").WithName("OVSDBServer")
 }
 
-// OVNControllerReconciler reconciles a OVNController object
-type OVNControllerReconciler struct {
+// OVSDBServerReconciler reconciles a OVSDBServer object
+type OVSDBServerReconciler struct {
 	client.Client
 	Kclient kubernetes.Interface
 	Scheme  *runtime.Scheme
 }
 
-// GetClient -
-func (r *OVNControllerReconciler) GetClient() client.Client {
-	return r.Client
-}
+//+kubebuilder:rbac:groups=ovn.openstack.org,resources=ovsdbservers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=ovn.openstack.org,resources=ovsdbservers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=ovn.openstack.org,resources=ovsdbservers/finalizers,verbs=update
 
-//+kubebuilder:rbac:groups=ovn.openstack.org,resources=ovncontrollers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=ovn.openstack.org,resources=ovncontrollers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=ovn.openstack.org,resources=ovncontrollers/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete;
-//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
-//+kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=create;delete;get;list;patch;update;watch
-//+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;patch;update;delete;
-//+kubebuilder:rbac:groups=ovn.openstack.org,resources=ovndbclusters,verbs=get;list;watch;
-//+kubebuilder:rbac:groups=k8s.cni.cncf.io,resources=network-attachment-definitions,verbs=create;delete;get;list;patch;update;watch
-
-// service account, role, rolebinding
-// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update
-// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update
-// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;watch;create;update
-// service account permissions that are needed to grant permission to the above
-// +kubebuilder:rbac:groups="security.openshift.io",resourceNames=anyuid;privileged,resources=securitycontextconstraints,verbs=use
-// +kubebuilder:rbac:groups="",resources=pods,verbs=create;delete;get;list;patch;update;watch
-
-func (r *OVNControllerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
+// TODO(user): Modify the Reconcile function to compare the state specified by
+// the OVSDBServer object against the actual cluster state, and then
+// perform operations to make the cluster state reflect the state specified by
+// the user.
+//
+// For more details, check Reconcile and its Result here:
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
+func (r *OVSDBServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
 
 	Log := r.GetLogger(ctx)
 
-	// Fetch OVNController instance
-	instance := &v1beta1.OVNController{}
+	// Fetch OVSDBServer instance
+	instance := &v1beta1.OVSDBServer{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
@@ -200,10 +178,9 @@ func (r *OVNControllerReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *OVNControllerReconciler) SetupWithManager(mgr ctrl.Manager, ctx context.Context) error {
-	crs := &v1beta1.OVNControllerList{}
+func (r *OVSDBServerReconciler) SetupWithManager(mgr ctrl.Manager, ctx context.Context) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta1.OVNController{}).
+		For(&v1beta1.OVSDBServer{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&batchv1.Job{}).
 		Owns(&netattdefv1.NetworkAttachmentDefinition{}).
@@ -211,11 +188,10 @@ func (r *OVNControllerReconciler) SetupWithManager(mgr ctrl.Manager, ctx context
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.Role{}).
 		Owns(&rbacv1.RoleBinding{}).
-		Watches(&source.Kind{Type: &v1beta1.OVNDBCluster{}}, handler.EnqueueRequestsFromMapFunc(v1beta1.OVNDBClusterNamespaceMapFunc(crs, mgr.GetClient(), r.GetLogger(ctx)))).
 		Complete(r)
 }
 
-func (r *OVNControllerReconciler) reconcileDelete(ctx context.Context, instance *v1beta1.OVNController, helper *helper.Helper) (ctrl.Result, error) {
+func (r *OVSDBServerReconciler) reconcileDelete(ctx context.Context, instance *v1beta1.OVSDBServer, helper *helper.Helper) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info("Reconciling Service delete")
@@ -227,9 +203,9 @@ func (r *OVNControllerReconciler) reconcileDelete(ctx context.Context, instance 
 	return ctrl.Result{}, nil
 }
 
-func (r *OVNControllerReconciler) reconcileInit(
+func (r *OVSDBServerReconciler) reconcileInit(
 	ctx context.Context,
-	instance *v1beta1.OVNController,
+	instance *v1beta1.OVSDBServer,
 	helper *helper.Helper,
 ) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
@@ -243,7 +219,7 @@ func (r *OVNControllerReconciler) reconcileInit(
 	return ctrl.Result{}, nil
 }
 
-func (r *OVNControllerReconciler) reconcileUpdate(ctx context.Context, instance *v1beta1.OVNController, helper *helper.Helper) (ctrl.Result, error) {
+func (r *OVSDBServerReconciler) reconcileUpdate(ctx context.Context, instance *v1beta1.OVSDBServer, helper *helper.Helper) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info("Reconciling Service update")
@@ -252,7 +228,7 @@ func (r *OVNControllerReconciler) reconcileUpdate(ctx context.Context, instance 
 	return ctrl.Result{}, nil
 }
 
-func (r *OVNControllerReconciler) reconcileUpgrade(ctx context.Context, instance *v1beta1.OVNController, helper *helper.Helper) (ctrl.Result, error) {
+func (r *OVSDBServerReconciler) reconcileUpgrade(ctx context.Context, instance *v1beta1.OVSDBServer, helper *helper.Helper) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info("Reconciling Service upgrade")
@@ -261,7 +237,7 @@ func (r *OVNControllerReconciler) reconcileUpgrade(ctx context.Context, instance
 	return ctrl.Result{}, nil
 }
 
-func (r *OVNControllerReconciler) reconcileNormal(ctx context.Context, instance *v1beta1.OVNController, helper *helper.Helper) (ctrl.Result, error) {
+func (r *OVSDBServerReconciler) reconcileNormal(ctx context.Context, instance *v1beta1.OVSDBServer, helper *helper.Helper) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info("Reconciling Service")
@@ -293,7 +269,7 @@ func (r *OVNControllerReconciler) reconcileNormal(ctx context.Context, instance 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 
 	//
-	// create Configmap required for OVNController input
+	// create Configmap required for OVSDBServer input
 	// - %-scripts configmap holding scripts to e.g. bootstrap the service
 	//
 	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars)
@@ -333,11 +309,11 @@ func (r *OVNControllerReconciler) reconcileNormal(ctx context.Context, instance 
 	//
 
 	serviceLabels := map[string]string{
-		common.AppSelector: ovncontroller.ServiceName,
+		common.AppSelector: ovsdbserver.ServiceName,
 	}
 
 	// Create additional Physical Network Attachments
-	networkAttachments, err := ovncontroller.CreateAdditionalNetworks(ctx, helper, instance, serviceLabels)
+	networkAttachments, err := ovsdbserver.CreateAdditionalNetworks(ctx, helper, instance, serviceLabels)
 	if err != nil {
 		Log.Info(fmt.Sprintf("Failed to create additional networks: %s", err))
 		return ctrl.Result{}, err
@@ -406,9 +382,9 @@ func (r *OVNControllerReconciler) reconcileNormal(ctx context.Context, instance 
 	}
 
 	// Define a new DaemonSet object
-	ovnDaemonSet, err := ovncontroller.DaemonSet(instance, inputHash, serviceLabels, serviceAnnotations)
+	ovnDaemonSet, err := ovsdbserver.DaemonSet(instance, inputHash, serviceLabels, serviceAnnotations)
 	if err != nil {
-		Log.Error(err, "Failed to create OVNController DaemonSet")
+		Log.Error(err, "Failed to create OVSDBServer DaemonSet")
 		return ctrl.Result{}, err
 	}
 	dset := daemonset.NewDaemonSet(
@@ -463,87 +439,11 @@ func (r *OVNControllerReconciler) reconcileNormal(ctx context.Context, instance 
 	}
 	// create DaemonSet - end
 
-	sbCluster, err := v1beta1.GetDBClusterByType(ctx, helper, instance.Namespace, map[string]string{}, v1beta1.SBDBType)
-	if err != nil {
-		Log.Info("No SB OVNDBCluster defined, deleting external ConfigMap")
-		cleanupConfigMapErr := r.deleteExternalConfigMaps(ctx, helper, instance)
-		if cleanupConfigMapErr != nil {
-			Log.Error(cleanupConfigMapErr, "Failed to delete external ConfigMap")
-			return ctrl.Result{}, cleanupConfigMapErr
-		}
-		return ctrl.Result{}, nil
-	}
-
-	ep, err := sbCluster.GetExternalEndpoint()
-	if err != nil || ep == "" {
-		Log.Info("No external endpoint defined for SB OVNDBCluster, deleting external ConfigMap")
-		cleanupConfigMapErr := r.deleteExternalConfigMaps(ctx, helper, instance)
-		if cleanupConfigMapErr != nil {
-			Log.Error(cleanupConfigMapErr, "Failed to delete external ConfigMap")
-			return ctrl.Result{}, cleanupConfigMapErr
-		}
-	}
-
-	if sbCluster.Spec.NetworkAttachment != "" {
-		// Create ConfigMap for external dataplane consumption
-		// TODO(ihar) - is there any hashing mechanism for EDP config? do we trigger deploy somehow?
-		err = r.generateExternalConfigMaps(ctx, helper, instance, sbCluster, &configMapVars)
-		if err != nil {
-			Log.Error(err, "Failed to generate external ConfigMap")
-			return ctrl.Result{}, err
-		}
-	}
-
 	// create OVN Config Job - start
 	if instance.Status.NumberReady == instance.Status.DesiredNumberScheduled {
-		jobsDef, err := ovncontroller.ConfigJob(ctx, helper, r.Client, instance, sbCluster, serviceLabels)
-		if err != nil {
-			Log.Error(err, "Failed to create OVN controller configuration Job")
-			return ctrl.Result{}, err
-		}
-		for _, jobDef := range jobsDef {
-			configHashKey := v1beta1.OvnConfigHash + "-" + jobDef.Spec.Template.Spec.NodeName
-			configHash := instance.Status.Hash[configHashKey]
-			configJob := job.NewJob(
-				jobDef,
-				configHashKey,
-				false,
-				time.Duration(5)*time.Second,
-				configHash,
-			)
-			ctrlResult, err = configJob.DoJob(ctx, helper)
-			if (ctrlResult != ctrl.Result{}) {
-				instance.Status.Conditions.Set(
-					condition.FalseCondition(
-						condition.ServiceConfigReadyCondition,
-						condition.RequestedReason,
-						condition.SeverityInfo,
-						condition.ServiceConfigReadyMessage,
-					),
-				)
-				return ctrlResult, nil
-			}
-			if err != nil {
-				Log.Error(err, "Failed to configure OVN controller")
-				instance.Status.Conditions.Set(
-					condition.FalseCondition(
-						condition.ServiceConfigReadyCondition,
-						condition.RequestedReason,
-						condition.SeverityInfo,
-						condition.ServiceConfigReadyErrorMessage,
-						err.Error(),
-					),
-				)
-				return ctrl.Result{}, err
-			}
-			if configJob.HasChanged() {
-				instance.Status.Hash[configHashKey] = configJob.GetHash()
-				Log.Info(fmt.Sprintf("Job %s hash added - %s", jobDef.Name, instance.Status.Hash[configHashKey]))
-			}
-		}
 		instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 	} else {
-		Log.Info("OVNController DaemonSet not ready yet. Configuration job cannot be started.")
+		Log.Info("OVSDBServr DaemonSet not ready yet. Configuration job cannot be started.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	// create OVN Config Job - end
@@ -554,18 +454,18 @@ func (r *OVNControllerReconciler) reconcileNormal(ctx context.Context, instance 
 }
 
 // generateServiceConfigMaps - create configmaps which hold scripts and service configuration
-func (r *OVNControllerReconciler) generateServiceConfigMaps(
+func (r *OVSDBServerReconciler) generateServiceConfigMaps(
 	ctx context.Context,
 	h *helper.Helper,
-	instance *v1beta1.OVNController,
+	instance *v1beta1.OVSDBServer,
 	envVars *map[string]env.Setter,
 ) error {
 	// Create/update configmaps from templates
-	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(ovncontroller.ServiceName), map[string]string{})
+	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(ovsdbserver.ServiceName), map[string]string{})
 
 	templateParameters := make(map[string]interface{})
-	if contains(instance.Spec.NetworkAttachments, TunnelNetworkAttachmentName) {
-		templateParameters["OvnEncapNIC"] = nad.GetNetworkIFName(TunnelNetworkAttachmentName)
+	if contains(instance.Spec.NetworkAttachments, TunnelNetworkAttachmentNameOVSDBServer) {
+		templateParameters["OvnEncapNIC"] = nad.GetNetworkIFName(TunnelNetworkAttachmentNameOVSDBServer)
 	} else if instance.Spec.NetworkAttachment != "" {
 		templateParameters["OvnEncapNIC"] = nad.GetNetworkIFName(instance.Spec.NetworkAttachment)
 	} else {
@@ -585,46 +485,12 @@ func (r *OVNControllerReconciler) generateServiceConfigMaps(
 	return configmap.EnsureConfigMaps(ctx, h, instance, cms, envVars)
 }
 
-// generateExternalConfigMaps - create configmaps for external dataplane consumption
-func (r *OVNControllerReconciler) generateExternalConfigMaps(
-	ctx context.Context,
-	h *helper.Helper,
-	instance *v1beta1.OVNController,
-	sbCluster *v1beta1.OVNDBCluster,
-	envVars *map[string]env.Setter,
-) error {
-	// Create/update configmaps from templates
-	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(ovncontroller.ServiceName), map[string]string{})
-
-	externalEndpoint, err := sbCluster.GetExternalEndpoint()
-	if err != nil {
-		return err
-	}
-
-	externalTemplateParameters := make(map[string]interface{})
-	externalTemplateParameters["OvnRemote"] = externalEndpoint
-	externalTemplateParameters["OvnEncapType"] = instance.Spec.ExternalIDS.OvnEncapType
-
-	cms := []util.Template{
-		// EDP ConfigMap
-		{
-			Name:          fmt.Sprintf("%s-config", instance.Name),
-			Namespace:     instance.Namespace,
-			Type:          util.TemplateTypeConfig,
-			InstanceType:  instance.Kind,
-			Labels:        cmLabels,
-			ConfigOptions: externalTemplateParameters,
-		},
-	}
-	return configmap.EnsureConfigMaps(ctx, h, instance, cms, envVars)
-}
-
 // TODO(ihar) this function could live in lib-common
 // deleteExternalConfigMaps - delete obsolete configmaps for external dataplane consumption
-func (r *OVNControllerReconciler) deleteExternalConfigMaps(
+func (r *OVSDBServerReconciler) deleteExternalConfigMaps(
 	ctx context.Context,
 	h *helper.Helper,
-	instance *v1beta1.OVNController,
+	instance *v1beta1.OVSDBServer,
 ) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -644,9 +510,9 @@ func (r *OVNControllerReconciler) deleteExternalConfigMaps(
 // if any of the input resources change, like configs, passwords, ...
 //
 // returns the hash, whether the hash changed (as a bool) and any error
-func (r *OVNControllerReconciler) createHashOfInputHashes(
+func (r *OVSDBServerReconciler) createHashOfInputHashes(
 	ctx context.Context,
-	instance *v1beta1.OVNController,
+	instance *v1beta1.OVSDBServer,
 	envVars map[string]env.Setter,
 ) (string, bool, error) {
 	Log := r.GetLogger(ctx)

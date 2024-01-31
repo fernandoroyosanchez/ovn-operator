@@ -16,9 +16,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
-	"github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	batchv1 "k8s.io/api/batch/v1"

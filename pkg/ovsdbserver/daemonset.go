@@ -10,7 +10,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ovncontroller
+package ovsdbserver
 
 import (
 	"github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
@@ -23,7 +23,7 @@ import (
 
 // DaemonSet func
 func DaemonSet(
-	instance *v1beta1.OVNController,
+	instance *v1beta1.OVSDBServer,
 	configHash string,
 	labels map[string]string,
 	annotations map[string]string,
@@ -35,31 +35,46 @@ func DaemonSet(
 	//
 	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 	//
+	ovsDbLivenessProbe := &corev1.Probe{
+		// TODO might need tuning
+		TimeoutSeconds:      5,
+		PeriodSeconds:       3,
+		InitialDelaySeconds: 3,
+	}
 
 	noopCmd := []string{
 		"/bin/true",
 	}
 
-	var ovnControllerCmd []string
-	var ovnControllerArgs []string
-	var ovnControllerPreStopCmd []string
+	var ovsDbPreStopCmd []string
+	var ovsDbCmd []string
+	var ovsDbArgs []string
 
 	if instance.Spec.Debug.Service {
-		ovnControllerCmd = []string{
+		ovsDbLivenessProbe.Exec = &corev1.ExecAction{
+			Command: noopCmd,
+		}
+		ovsDbCmd = []string{
 			"/bin/sleep",
 		}
-		ovnControllerArgs = []string{"infinity"}
-		ovnControllerPreStopCmd = noopCmd
+		ovsDbArgs = []string{"infinity"}
+		ovsDbPreStopCmd = noopCmd
 	} else {
-		ovnControllerCmd = []string{
-			"/bin/bash", "-c",
+		ovsDbLivenessProbe.Exec = &corev1.ExecAction{
+			Command: []string{
+				"/usr/bin/ovs-vsctl",
+				"show",
+			},
 		}
-		ovnControllerArgs = []string{
-			"/usr/local/bin/container-scripts/net_setup.sh && ovn-controller --pidfile unix:/run/openvswitch/db.sock",
+		ovsDbCmd = []string{
+			"/usr/bin/dumb-init",
+		}
+		ovsDbArgs = []string{
+			"--single-child", "--", "/usr/local/bin/container-scripts/start-ovsdb-server.sh",
 		}
 		// sleep is required as workaround for https://github.com/kubernetes/kubernetes/issues/39170
-		ovnControllerPreStopCmd = []string{
-			"/usr/share/ovn/scripts/ovn-ctl", "stop_controller", ";", "sleep", "2",
+		ovsDbPreStopCmd = []string{
+			"/usr/share/openvswitch/scripts/ovs-ctl", "stop", "--no-ovs-vswitchd", ";", "sleep", "2",
 		}
 	}
 
@@ -83,23 +98,19 @@ func DaemonSet(
 				Spec: corev1.PodSpec{
 					ServiceAccountName: instance.RbacResourceName(),
 					Containers: []corev1.Container{
-						// ovn-controller container
+						// ovsdb-server container
 						{
-							// ovn-controller container
-							// NOTE(slaweq): for some reason, when ovn-controller is started without
-							// bash shell, it fails with error "unrecognized option --pidfile"
-							Name:    "ovn-controller",
-							Command: ovnControllerCmd,
-							Args:    ovnControllerArgs,
+							Name:    "ovsdb-server",
+							Command: ovsDbCmd,
+							Args:    ovsDbArgs,
 							Lifecycle: &corev1.Lifecycle{
 								PreStop: &corev1.LifecycleHandler{
 									Exec: &corev1.ExecAction{
-										Command: ovnControllerPreStopCmd,
+										Command: ovsDbPreStopCmd,
 									},
 								},
 							},
-							Image: instance.Spec.OvnContainerImage,
-							// TODO(slaweq): to check if ovn-controller really needs such security contexts
+							Image: instance.Spec.OvsContainerImage,
 							SecurityContext: &corev1.SecurityContext{
 								Capabilities: &corev1.Capabilities{
 									Add:  []corev1.Capability{"NET_ADMIN", "SYS_ADMIN", "SYS_NICE"},
@@ -109,8 +120,9 @@ func DaemonSet(
 								Privileged: &privileged,
 							},
 							Env:                      env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:             GetOvnControllerVolumeMounts(),
+							VolumeMounts:             GetOvsDbVolumeMounts(),
 							Resources:                instance.Spec.Resources,
+							LivenessProbe:            ovsDbLivenessProbe,
 							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						},
 					},

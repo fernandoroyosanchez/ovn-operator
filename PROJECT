@@ -14,7 +14,7 @@ resources:
   domain: openstack.org
   group: ovn
   kind: OVNNorthd
-  path: github.com/openstack-k8s-operators/ovn-operator/api/v1beta1
+  path: github.com/fernandoroyosanchez/ovn-operator/api/v1beta1
   version: v1beta1
   webhooks:
     defaulting: true
@@ -27,7 +27,7 @@ resources:
   domain: openstack.org
   group: ovn
   kind: OVNDBCluster
-  path: github.com/openstack-k8s-operators/ovn-operator/api/v1beta1
+  path: github.com/fernandoroyosanchez/ovn-operator/api/v1beta1
   version: v1beta1
   webhooks:
     defaulting: true
@@ -40,7 +40,33 @@ resources:
   domain: openstack.org
   group: ovn
   kind: OVNController
-  path: github.com/openstack-k8s-operators/ovn-operator/api/v1beta1
+  path: github.com/fernandoroyosanchez/ovn-operator/api/v1beta1
+  version: v1beta1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openstack.org
+  group: ovn
+  kind: OVSDBServer
+  path: github.com/fernandoroyosanchez/ovn-operator/api/v1beta1
+  version: v1beta1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openstack.org
+  group: ovn
+  kind: OVSvswitchd
+  path: github.com/fernandoroyosanchez/ovn-operator/api/v1beta1
   version: v1beta1
   webhooks:
     defaulting: true

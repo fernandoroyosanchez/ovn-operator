@@ -10,36 +10,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ovncontroller
+package ovsdbserver
 
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
-	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func getPhysicalNetworks(
-	instance *v1beta1.OVNController,
-) string {
-	// NOTE(slaweq): to make things easier, each physical bridge will have
-	//               the same name as "br-<physical network>"
-	// NOTE(slaweq): interface names aren't important as inside Pod they will be
-	//               named based on the NicMappings keys
-	return strings.Join(
-		maps.Keys(instance.Spec.NicMappings), " ",
-	)
-}
-
-func getOVNControllerPods(
+func getOVSDBServerPods(
 	ctx context.Context,
 	k8sClient client.Client,
-	instance *v1beta1.OVNController,
+	instance *v1beta1.OVSDBServer,
 ) (*corev1.PodList, error) {
 
 	podList := &corev1.PodList{}

@@ -10,7 +10,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ovncontroller
+package ovsdbserver
 
 import (
 	"context"
@@ -29,7 +29,7 @@ import (
 func CreateAdditionalNetworks(
 	ctx context.Context,
 	h *helper.Helper,
-	instance *v1beta1.OVNController,
+	instance *v1beta1.OVSDBServer,
 	labels map[string]string,
 ) ([]string, error) {
 

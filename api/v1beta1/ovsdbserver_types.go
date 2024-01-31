@@ -24,28 +24,24 @@ import (
 )
 
 const (
-	// OvnConfigHash - OvnConfigHash key
-	OvnConfigHash = "OvnConfigHash"
-
-	// Container image fall-back defaults
-	// OvnControllerContainerImage is the fall-back container image for OVNController ovn-controller
-	OvnControllerContainerImage = "quay.io/podified-antelope-centos9/openstack-ovn-controller:current-podified"
+	// OvsdbserverOvsContainerImage is the fall-back container image for OVNController ovs-*
+	OvsdbserverOvsContainerImage = "quay.io/podified-antelope-centos9/openstack-ovn-base:current-podified"
 )
 
-// OVNControllerSpec defines the desired state of OVNController
-type OVNControllerSpec struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={}
-	ExternalIDS OVSExternalIDs `json:"external-ids"`
-
+// OVSDBServerSpec defines the desired state of OVSDBServer
+type OVSDBServerSpec struct {
 	// +kubebuilder:validation:Required
-	// Image used for the ovn-controller container (will be set to environmental default if empty)
-	OvnContainerImage string `json:"ovnContainerImage"`
+	// Image used for the ovsdb-server containers (will be set to environmental default if empty)
+	OvsContainerImage string `json:"ovsContainerImage"`
 
 	// +kubebuilder:validation:Optional
 	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
 	// actual action pod gets started with sleep infinity
-	Debug OVNControllerDebug `json:"debug,omitempty"`
+	Debug OVSDBServerDebug `json:"debug,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// NodeSelector to target subset of worker nodes running this service
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +optional
@@ -55,10 +51,6 @@ type OVNControllerSpec struct {
 	// Resources - Compute Resources required by this service (Limits/Requests).
 	// https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// NodeSelector to target subset of worker nodes running this service
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// NetworkAttachment is a NetworkAttachment resource name to expose the service to the given network.
@@ -73,16 +65,16 @@ type OVNControllerSpec struct {
 	NetworkAttachments []string `json:"networkAttachments,omitempty"`
 }
 
-// OVNControllerDebug defines the observed state of OVNControllerDebug
-type OVNControllerDebug struct {
+// OVSDBServerDebug defines the observed state of OVSDBServerDebug
+type OVSDBServerDebug struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// Service enable debug
 	Service bool `json:"service"`
 }
 
-// OVNControllerStatus defines the observed state of OVNController
-type OVNControllerStatus struct {
+// OVSDBServerStatus defines the observed state of OVSDBServer
+type OVSDBServerStatus struct {
 	// NumberReady of the OVNController instances
 	NumberReady int32 `json:"numberReady,omitempty"`
 
@@ -105,66 +97,46 @@ type OVNControllerStatus struct {
 //+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[0].status",description="Status"
 //+kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[0].message",description="Message"
 
-// OVNController is the Schema for the ovncontrollers API
-type OVNController struct {
+// OVSDBServer is the Schema for the ovsdbservers API
+type OVSDBServer struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   OVNControllerSpec   `json:"spec,omitempty"`
-	Status OVNControllerStatus `json:"status,omitempty"`
+	Spec   OVSDBServerSpec   `json:"spec,omitempty"`
+	Status OVSDBServerStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// OVNControllerList contains a list of OVNController
-type OVNControllerList struct {
+// OVSDBServerList contains a list of OVSDBServer
+type OVSDBServerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []OVNController `json:"items"`
+	Items           []OVSDBServer `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&OVNController{}, &OVNControllerList{})
+	SchemeBuilder.Register(&OVSDBServer{}, &OVSDBServerList{})
 }
 
 // IsReady - returns true if service is ready to server requests
-func (instance OVNController) IsReady() bool {
+func (instance OVSDBServer) IsReady() bool {
 	// Ready when:
-	// OVNController is reconciled successfully
+	// OVSDBServer is reconciled successfully
 	return instance.Status.Conditions.IsTrue(condition.ReadyCondition)
 }
 
-// OVSExternalIDs is a set of configuration options for OVS external-ids table
-type OVSExternalIDs struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="random"
-	SystemID  string `json:"system-id,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="br-int"
-	OvnBridge string `json:"ovn-bridge,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="geneve"
-	// +kubebuilder:validation:Enum={"geneve","vxlan"}
-	OvnEncapType string `json:"ovn-encap-type,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=true
-	EnableChassisAsGateway *bool `json:"enable-chassis-as-gateway"`
-}
-
 // RbacConditionsSet - set the conditions for the rbac object
-func (instance OVNController) RbacConditionsSet(c *condition.Condition) {
+func (instance OVSDBServer) RbacConditionsSet(c *condition.Condition) {
 	instance.Status.Conditions.Set(c)
 }
 
 // RbacNamespace - return the namespace
-func (instance OVNController) RbacNamespace() string {
+func (instance OVSDBServer) RbacNamespace() string {
 	return instance.Namespace
 }
 
 // RbacResourceName - return the name to be used for rbac objects (serviceaccount, role, rolebinding)
-func (instance OVNController) RbacResourceName() string {
-	return "ovncontroller-" + instance.Name
+func (instance OVSDBServer) RbacResourceName() string {
+	return "ovsdbserver-" + instance.Name
 }

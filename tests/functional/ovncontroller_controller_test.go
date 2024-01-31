@@ -20,11 +20,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	ovnv1 "github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
-	ovnv1 "github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,7 +44,6 @@ var _ = Describe("OVNController controller", func() {
 
 		It("should have the Spec fields initialized", func() {
 			OVNController := GetOVNController(OVNControllerName)
-			Expect(OVNController.Spec.OvsContainerImage).Should(Equal("quay.io/podified-antelope-centos9/openstack-ovn-base:current-podified"))
 			Expect(OVNController.Spec.OvnContainerImage).Should(Equal("quay.io/podified-antelope-centos9/openstack-ovn-controller:current-podified"))
 		})
 

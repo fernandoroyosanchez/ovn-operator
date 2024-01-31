@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
+	ovnv1 "github.com/fernandoroyosanchez/ovn-operator/api/v1beta1"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
-	"github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
-	ovnv1 "github.com/openstack-k8s-operators/ovn-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
